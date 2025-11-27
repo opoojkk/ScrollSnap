@@ -74,7 +74,7 @@ function createFixedBox(area) {
     font-family: Arial, sans-serif;
     white-space: nowrap;
   `;
-  label.textContent = '📸 滚动截图中... (滚动页面进行截图)';
+  label.textContent = '📸 滚动截图中... (滚动页面，将拼接成长图)';
   box.appendChild(label);
 
   document.body.appendChild(box);
@@ -284,7 +284,7 @@ function startCapture() {
   const fixedBox = createFixedBox(state.selectedArea);
 
   // 显示提示
-  showToast('📸 截图模式已开启，滚动页面进行捕获', 3000);
+  showToast('📸 长图模式已开启，滚动页面将自动拼接', 3000);
 
   // 监听滚动事件
   let scrollTimeout;
@@ -315,7 +315,7 @@ function stopCapture() {
   window.removeEventListener('scroll', state.scrollHandler);
   document.getElementById('scrollsnap-fixed-box')?.remove();
 
-  showToast(`✓ 已停止捕获，共 ${state.captures.length} 张截图`, 3000);
+  showToast(`✓ 已停止捕获，共 ${state.captures.length} 帧画面`, 3000);
 
   return { success: true, count: state.captures.length };
 }
@@ -405,7 +405,7 @@ function showCaptureIndicator() {
     font-size: 14px;
     animation: slideIn 0.3s ease-out;
   `;
-  indicator.textContent = `✓ 已捕获 ${state.captures.length} 张截图`;
+  indicator.textContent = `✓ 已捕获 ${state.captures.length} 帧画面`;
 
   document.body.appendChild(indicator);
 
@@ -414,30 +414,122 @@ function showCaptureIndicator() {
   }, 1000);
 }
 
+// 拼接截图生成长图
+async function stitchImages() {
+  if (state.captures.length === 0) {
+    return null;
+  }
+
+  showToast('🔄 正在拼接长图，请稍候...', 3000);
+
+  try {
+    // 按滚动位置排序
+    const sortedCaptures = [...state.captures].sort((a, b) => a.scrollY - b.scrollY);
+
+    // 加载所有图片
+    const images = await Promise.all(
+      sortedCaptures.map(capture => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve({ img, scrollY: capture.scrollY });
+          img.src = capture.dataUrl;
+        });
+      })
+    );
+
+    if (images.length === 0) return null;
+
+    // 计算总高度
+    const firstImg = images[0].img;
+    const imgWidth = firstImg.width;
+    const imgHeight = firstImg.height;
+
+    // 计算滚动距离和重叠
+    let totalHeight = imgHeight;
+    const overlaps = [];
+
+    for (let i = 1; i < images.length; i++) {
+      const scrollDiff = images[i].scrollY - images[i - 1].scrollY;
+      overlaps.push(scrollDiff);
+      totalHeight += scrollDiff;
+    }
+
+    console.log('ScrollSnap: 拼接', images.length, '张图片，总高度', totalHeight);
+
+    // 创建大画布
+    const canvas = document.createElement('canvas');
+    canvas.width = imgWidth;
+    canvas.height = totalHeight;
+    const ctx = canvas.getContext('2d');
+
+    // 绘制第一张图片
+    ctx.drawImage(images[0].img, 0, 0);
+
+    // 拼接后续图片
+    let currentY = imgHeight;
+    for (let i = 1; i < images.length; i++) {
+      const scrollDiff = overlaps[i - 1];
+      const yPosition = currentY - (imgHeight - scrollDiff);
+      ctx.drawImage(images[i].img, 0, yPosition);
+      currentY = yPosition + imgHeight;
+    }
+
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.error('拼接图片失败:', error);
+    showToast('❌ 拼接失败，将下载独立截图', 2000);
+    return null;
+  }
+}
+
 // 下载截图
-function downloadCaptures() {
+async function downloadCaptures() {
   if (state.captures.length === 0) {
     showToast('⚠️ 没有可下载的截图', 2000);
     return { success: false };
   }
 
-  console.log('ScrollSnap: 下载', state.captures.length, '张截图');
+  console.log('ScrollSnap: 开始处理', state.captures.length, '张截图');
   const count = state.captures.length;
   const timestamp = Date.now();
 
-  state.captures.forEach((capture, index) => {
-    setTimeout(() => {
-      const link = document.createElement('a');
-      link.href = capture.dataUrl;
-      link.download = `scrollsnap_${timestamp}_${index + 1}.png`;
-      link.click();
-    }, index * 100); // 延迟下载避免浏览器阻止
-  });
+  // 如果只有一张，直接下载
+  if (count === 1) {
+    const link = document.createElement('a');
+    link.href = state.captures[0].dataUrl;
+    link.download = `scrollsnap_${timestamp}.png`;
+    link.click();
+    state.captures = [];
+    showToast('✓ 截图已下载', 2000);
+    return { success: true };
+  }
+
+  // 多张图片，拼接成长图
+  const stitchedImage = await stitchImages();
+
+  if (stitchedImage) {
+    // 下载拼接后的长图
+    const link = document.createElement('a');
+    link.href = stitchedImage;
+    link.download = `scrollsnap_long_${timestamp}.png`;
+    link.click();
+
+    showToast(`✓ 长图已生成并下载（${count} 张拼接）`, 3000);
+  } else {
+    // 拼接失败，下载独立图片
+    state.captures.forEach((capture, index) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = capture.dataUrl;
+        link.download = `scrollsnap_${timestamp}_${index + 1}.png`;
+        link.click();
+      }, index * 100);
+    });
+    showToast(`✓ 已下载 ${count} 张独立截图`, 2000);
+  }
 
   // 清空captures
   state.captures = [];
-
-  showToast(`✓ 正在下载 ${count} 张截图...`, 2000);
 
   return { success: true };
 }
@@ -459,7 +551,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       break;
 
     case 'downloadCaptures':
-      sendResponse(downloadCaptures());
+      // 异步处理下载和拼接
+      downloadCaptures().then(result => {
+        sendResponse(result);
+      }).catch(error => {
+        console.error('下载失败:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+      return true; // 保持异步消息通道开放
       break;
 
     case 'getState':

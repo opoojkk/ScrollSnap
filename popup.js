@@ -48,7 +48,7 @@ startCaptureBtn.addEventListener('click', async () => {
     const response = await chrome.tabs.sendMessage(tab.id, { action: 'startCapture' });
 
     if (response && response.success) {
-      showStatus('✓ 滚动截图已开启，滚动页面进行捕获', 'success');
+      showStatus('✓ 长图模式已开启，滚动将自动拼接', 'success');
       startCaptureBtn.disabled = true;
       stopCaptureBtn.disabled = false;
     } else {
@@ -68,7 +68,7 @@ stopCaptureBtn.addEventListener('click', async () => {
     const response = await chrome.tabs.sendMessage(tab.id, { action: 'stopCapture' });
 
     if (response && response.success) {
-      showStatus(`✓ 已捕获 ${response.count} 张截图`, 'success');
+      showStatus(`✓ 已捕获 ${response.count} 帧，准备拼接长图`, 'success');
       stopCaptureBtn.disabled = true;
       downloadBtn.disabled = false;
     } else {
@@ -85,18 +85,18 @@ downloadBtn.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    showStatus('正在准备下载...', 'info');
+    showStatus('🔄 正在拼接长图...', 'info');
     const response = await chrome.tabs.sendMessage(tab.id, { action: 'downloadCaptures' });
 
     if (response && response.success) {
-      showStatus('✓ 截图已开始下载', 'success');
+      showStatus('✓ 长图已生成并下载！', 'success');
       downloadBtn.disabled = true;
       setTimeout(() => {
         downloadBtn.disabled = false;
         showStatus('可以重新开始截图', 'info');
       }, 2000);
     } else {
-      showStatus('✗ 没有可下载的截图', 'info');
+      showStatus('✗ 没有可下载的内容', 'info');
     }
   } catch (error) {
     console.error('下载截图失败:', error);
@@ -123,7 +123,7 @@ async function checkState() {
 
     if (response.captureCount > 0 && !response.isCapturing) {
       downloadBtn.disabled = false;
-      showStatus(`已捕获 ${response.captureCount} 张截图`, 'success');
+      showStatus(`已捕获 ${response.captureCount} 帧，可下载长图`, 'success');
     }
   } catch (error) {
     console.log('Content script not ready:', error);
