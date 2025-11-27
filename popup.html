@@ -76,7 +76,7 @@
   <button id="selectAreaBtn" class="btn btn-primary">选择区域</button>
   <button id="startCaptureBtn" class="btn btn-secondary" disabled>开始截图</button>
   <button id="stopCaptureBtn" class="btn btn-danger" disabled>停止截图</button>
-  <button id="downloadBtn" class="btn btn-secondary" disabled>下载截图</button>
+  <button id="downloadBtn" class="btn btn-secondary" disabled>下载长图</button>
 
   <div id="status" class="status status-info" style="display:none;"></div>
 
@@ -85,8 +85,9 @@
     1. 点击"选择区域"按钮<br>
     2. 在页面上拖动鼠标选择要截图的区域<br>
     3. 点击"开始截图"开启滚动捕获<br>
-    4. 滚动页面时会自动截图<br>
-    5. 点击"停止截图"和"下载截图"保存
+    4. 滚动页面，每帧画面会自动捕获<br>
+    5. 点击"停止截图"和"下载长图"<br>
+    <em style="font-size: 11px; color: #999;">* 多帧画面将自动拼接成一张长图</em>
   </div>
 
   <script src="popup.js"></script>
