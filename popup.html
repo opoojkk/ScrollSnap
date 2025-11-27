@@ -68,6 +68,32 @@
       margin-top: 12px;
       line-height: 1.5;
     }
+    .settings {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+    .settings label {
+      display: block;
+      margin-bottom: 6px;
+      color: #555;
+      font-weight: 500;
+    }
+    .settings select {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      background: white;
+    }
+    .format-info {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -76,7 +102,18 @@
   <button id="selectAreaBtn" class="btn btn-primary">选择区域</button>
   <button id="startCaptureBtn" class="btn btn-secondary" disabled>开始截图</button>
   <button id="stopCaptureBtn" class="btn btn-danger" disabled>停止截图</button>
-  <button id="downloadBtn" class="btn btn-secondary" disabled>下载长图</button>
+
+  <div class="settings">
+    <label for="exportFormat">导出格式：</label>
+    <select id="exportFormat">
+      <option value="png" selected>PNG - 无损高质量（推荐）</option>
+      <option value="jpeg">JPEG - 文件更小</option>
+      <option value="webp">WebP - 新格式（Chrome）</option>
+    </select>
+    <div class="format-info">💡 PNG格式质量最佳，适合长图</div>
+  </div>
+
+  <button id="downloadBtn" class="btn btn-secondary" disabled>📥 下载长图 (PNG)</button>
 
   <div id="status" class="status status-info" style="display:none;"></div>
 
