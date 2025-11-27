@@ -81,10 +81,41 @@ function createFixedBox(area) {
   return box;
 }
 
+// 显示提示消息
+function showToast(message, duration = 3000) {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #323232;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 4px;
+    z-index: 1000003;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease-out;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'slideUp 0.3s ease-out';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
 // 开始选择区域
 function startSelection() {
-  if (state.isSelecting) return;
+  if (state.isSelecting) {
+    showToast('⚠️ 已经在选择模式中');
+    return { success: false };
+  }
 
+  console.log('ScrollSnap: 启动选择模式');
   state.isSelecting = true;
   state.hasSelection = false;
 
@@ -93,6 +124,9 @@ function startSelection() {
 
   state.selectionOverlay = createSelectionOverlay();
   state.selectionBox = createSelectionBox();
+
+  // 显示提示
+  showToast('📌 拖动鼠标选择要截图的区域', 3000);
 
   let startX, startY;
 
@@ -148,6 +182,8 @@ function startSelection() {
   state.selectionOverlay.addEventListener('mousedown', onMouseDown);
   state.selectionOverlay.addEventListener('mousemove', onMouseMove);
   state.selectionOverlay.addEventListener('mouseup', onMouseUp);
+
+  return { success: true };
 }
 
 // 显示确认界面
@@ -156,6 +192,9 @@ function showConfirmation() {
     state.selectionOverlay.remove();
     state.selectionOverlay = null;
   }
+
+  // 显示提示
+  showToast('✓ 区域已选择，点击确认或取消', 5000);
 
   // 添加确认按钮
   const confirmBtn = document.createElement('div');
@@ -211,6 +250,7 @@ function confirmSelection() {
     state.selectionBox.remove();
     state.selectionBox = null;
   }
+  showToast('✓ 区域已确认！现在可以开始截图', 2000);
 }
 
 // 清理选择相关元素
@@ -226,15 +266,25 @@ function cleanupSelection() {
 
 // 开始捕获
 function startCapture() {
-  if (!state.hasSelection || state.isCapturing) {
-    return { success: false, error: 'No selection or already capturing' };
+  if (!state.hasSelection) {
+    showToast('⚠️ 请先选择区域', 2000);
+    return { success: false, error: 'No selection' };
   }
 
+  if (state.isCapturing) {
+    showToast('⚠️ 已经在捕获模式中', 2000);
+    return { success: false, error: 'Already capturing' };
+  }
+
+  console.log('ScrollSnap: 开始捕获');
   state.isCapturing = true;
   state.captures = [];
 
   // 显示固定的选择框
   const fixedBox = createFixedBox(state.selectedArea);
+
+  // 显示提示
+  showToast('📸 截图模式已开启，滚动页面进行捕获', 3000);
 
   // 监听滚动事件
   let scrollTimeout;
@@ -256,12 +306,16 @@ function startCapture() {
 // 停止捕获
 function stopCapture() {
   if (!state.isCapturing) {
+    showToast('⚠️ 当前没有在捕获', 2000);
     return { success: false };
   }
 
+  console.log('ScrollSnap: 停止捕获，共捕获', state.captures.length, '张');
   state.isCapturing = false;
   window.removeEventListener('scroll', state.scrollHandler);
   document.getElementById('scrollsnap-fixed-box')?.remove();
+
+  showToast(`✓ 已停止捕获，共 ${state.captures.length} 张截图`, 3000);
 
   return { success: true, count: state.captures.length };
 }
@@ -363,18 +417,27 @@ function showCaptureIndicator() {
 // 下载截图
 function downloadCaptures() {
   if (state.captures.length === 0) {
+    showToast('⚠️ 没有可下载的截图', 2000);
     return { success: false };
   }
 
+  console.log('ScrollSnap: 下载', state.captures.length, '张截图');
+  const count = state.captures.length;
+  const timestamp = Date.now();
+
   state.captures.forEach((capture, index) => {
-    const link = document.createElement('a');
-    link.href = capture.dataUrl;
-    link.download = `scrollsnap_${Date.now()}_${index + 1}.png`;
-    link.click();
+    setTimeout(() => {
+      const link = document.createElement('a');
+      link.href = capture.dataUrl;
+      link.download = `scrollsnap_${timestamp}_${index + 1}.png`;
+      link.click();
+    }, index * 100); // 延迟下载避免浏览器阻止
   });
 
   // 清空captures
   state.captures = [];
+
+  showToast(`✓ 正在下载 ${count} 张截图...`, 2000);
 
   return { success: true };
 }
@@ -427,7 +490,29 @@ style.textContent = `
       opacity: 1;
     }
   }
+
+  @keyframes slideDown {
+    from {
+      transform: translate(-50%, -20px);
+      opacity: 0;
+    }
+    to {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+    to {
+      transform: translate(-50%, -20px);
+      opacity: 0;
+    }
+  }
 `;
 document.head.appendChild(style);
 
-console.log('ScrollSnap content script loaded');
+console.log('✓ ScrollSnap content script loaded and ready');
