@@ -3,6 +3,7 @@ const startCaptureBtn = document.getElementById('startCaptureBtn');
 const stopCaptureBtn = document.getElementById('stopCaptureBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const statusDiv = document.getElementById('status');
+const exportFormat = document.getElementById('exportFormat');
 
 function showStatus(message, type = 'info') {
   statusDiv.textContent = message;
@@ -80,16 +81,39 @@ stopCaptureBtn.addEventListener('click', async () => {
   }
 });
 
+// 更新下载按钮文本
+exportFormat.addEventListener('change', () => {
+  const format = exportFormat.value.toUpperCase();
+  downloadBtn.textContent = `📥 下载长图 (${format})`;
+
+  const formatInfo = document.querySelector('.format-info');
+  switch(exportFormat.value) {
+    case 'png':
+      formatInfo.textContent = '💡 PNG格式质量最佳，适合长图';
+      break;
+    case 'jpeg':
+      formatInfo.textContent = '💡 JPEG文件更小，但有轻微压缩';
+      break;
+    case 'webp':
+      formatInfo.textContent = '💡 WebP平衡质量和大小，Chrome支持';
+      break;
+  }
+});
+
 // 下载截图
 downloadBtn.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const format = exportFormat.value;
 
-    showStatus('🔄 正在拼接长图...', 'info');
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'downloadCaptures' });
+    showStatus(`🔄 正在拼接长图 (${format.toUpperCase()})...`, 'info');
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      action: 'downloadCaptures',
+      format: format
+    });
 
     if (response && response.success) {
-      showStatus('✓ 长图已生成并下载！', 'success');
+      showStatus(`✓ ${format.toUpperCase()} 长图已生成并下载！`, 'success');
       downloadBtn.disabled = true;
       setTimeout(() => {
         downloadBtn.disabled = false;

@@ -415,7 +415,7 @@ function showCaptureIndicator() {
 }
 
 // 拼接截图生成长图
-async function stitchImages() {
+async function stitchImages(format = 'png', quality = 0.95) {
   if (state.captures.length === 0) {
     return null;
   }
@@ -454,13 +454,17 @@ async function stitchImages() {
       totalHeight += scrollDiff;
     }
 
-    console.log('ScrollSnap: 拼接', images.length, '张图片，总高度', totalHeight);
+    console.log('ScrollSnap: 拼接', images.length, '张图片，总高度', totalHeight, '格式', format);
 
     // 创建大画布
     const canvas = document.createElement('canvas');
     canvas.width = imgWidth;
     canvas.height = totalHeight;
     const ctx = canvas.getContext('2d');
+
+    // 设置高质量渲染
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // 绘制第一张图片
     ctx.drawImage(images[0].img, 0, 0);
@@ -474,7 +478,25 @@ async function stitchImages() {
       currentY = yPosition + imgHeight;
     }
 
-    return canvas.toDataURL('image/png');
+    // 根据格式导出
+    let mimeType, fileQuality;
+    switch(format) {
+      case 'jpeg':
+        mimeType = 'image/jpeg';
+        fileQuality = quality;
+        break;
+      case 'webp':
+        mimeType = 'image/webp';
+        fileQuality = quality;
+        break;
+      case 'png':
+      default:
+        mimeType = 'image/png';
+        fileQuality = undefined; // PNG不需要质量参数
+        break;
+    }
+
+    return canvas.toDataURL(mimeType, fileQuality);
   } catch (error) {
     console.error('拼接图片失败:', error);
     showToast('❌ 拼接失败，将下载独立截图', 2000);
@@ -483,49 +505,54 @@ async function stitchImages() {
 }
 
 // 下载截图
-async function downloadCaptures() {
+async function downloadCaptures(format = 'png', quality = 0.95) {
   if (state.captures.length === 0) {
     showToast('⚠️ 没有可下载的截图', 2000);
     return { success: false };
   }
 
-  console.log('ScrollSnap: 开始处理', state.captures.length, '张截图');
+  console.log('ScrollSnap: 开始处理', state.captures.length, '张截图，格式:', format);
   const count = state.captures.length;
   const timestamp = Date.now();
+
+  // 获取文件扩展名
+  const extension = format === 'jpeg' ? 'jpg' : format;
 
   // 如果只有一张，直接下载
   if (count === 1) {
     const link = document.createElement('a');
     link.href = state.captures[0].dataUrl;
-    link.download = `scrollsnap_${timestamp}.png`;
+    link.download = `scrollsnap_${timestamp}.${extension}`;
     link.click();
     state.captures = [];
-    showToast('✓ 截图已下载', 2000);
+    showToast(`✓ ${format.toUpperCase()} 截图已下载`, 2000);
     return { success: true };
   }
 
   // 多张图片，拼接成长图
-  const stitchedImage = await stitchImages();
+  const stitchedImage = await stitchImages(format, quality);
 
   if (stitchedImage) {
     // 下载拼接后的长图
     const link = document.createElement('a');
     link.href = stitchedImage;
-    link.download = `scrollsnap_long_${timestamp}.png`;
+    link.download = `scrollsnap_long_${timestamp}.${extension}`;
     link.click();
 
-    showToast(`✓ 长图已生成并下载（${count} 张拼接）`, 3000);
+    // 计算文件大小估算
+    const sizeKB = Math.round((stitchedImage.length * 0.75) / 1024);
+    showToast(`✓ ${format.toUpperCase()} 长图已生成（${count}帧，~${sizeKB}KB）`, 3000);
   } else {
     // 拼接失败，下载独立图片
     state.captures.forEach((capture, index) => {
       setTimeout(() => {
         const link = document.createElement('a');
         link.href = capture.dataUrl;
-        link.download = `scrollsnap_${timestamp}_${index + 1}.png`;
+        link.download = `scrollsnap_${timestamp}_${index + 1}.${extension}`;
         link.click();
       }, index * 100);
     });
-    showToast(`✓ 已下载 ${count} 张独立截图`, 2000);
+    showToast(`✓ 已下载 ${count} 张独立 ${format.toUpperCase()} 图片`, 2000);
   }
 
   // 清空captures
@@ -552,7 +579,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'downloadCaptures':
       // 异步处理下载和拼接
-      downloadCaptures().then(result => {
+      const format = request.format || 'png';
+      const quality = request.quality || 0.95;
+      downloadCaptures(format, quality).then(result => {
         sendResponse(result);
       }).catch(error => {
         console.error('下载失败:', error);
